@@ -9,8 +9,4 @@ class Test {
 	public int $Index;
 }
 
-$Result = $Connection -> RunQuery("SELECT * FROM test", ASQLiResultType::Store);
-$Result -> SetTemplate(new Test());
-$Result -> SetRowFormat(ASQLiRowFormat::Object);
-
-var_dump($Result -> FetchAllRows());
+$Result = $Connection -> PrepareQuery("SELECT * FROM test", ASQLiResultType::Store);

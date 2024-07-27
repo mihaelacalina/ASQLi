@@ -15,6 +15,9 @@ class ASQLiConnection {
 		$this -> Data = [$Address, $Username, $Password, $Database, $Port, $Socket];	
 	}
 
+	/**
+	 * Attempts to connect to the database.
+	 */
 	public function Connect() {
 		$TempConnection = null;
 
@@ -69,9 +72,11 @@ class ASQLiConnection {
 		}
 	}
 
-	protected function X_ForceConnected() {
-		if (is_null($this -> Connection)) {
-			throw new ASQLiException(0, "ASQLiConnection object connection has not been established.");
+	#region Protected
+		protected function X_ForceConnected() {
+			if (is_null($this -> Connection)) {
+				throw new ASQLiException(0, "ASQLiConnection object connection has not been established.");
+			}
 		}
-	}
+	#endregion
 }
