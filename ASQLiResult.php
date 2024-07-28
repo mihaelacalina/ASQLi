@@ -1,16 +1,39 @@
 <?
-include_once __DIR__ . "/Exceptions.php";
-include_once __DIR__ . "/Enums.php";
+include_once __DIR__ . "/ASQLiExceptions.php";
+
+
+/**
+ * The format for the row arrays.
+ */
+enum ASQLiRowFormat {
+	case Associative;
+	case Object;
+	case Numeric;
+}
 
 
 
-class ASQLiResult implements Iterator {
+/**
+ * This is a mysqli result set.
+ * The data maybe buffered locally or on the mysql server.
+ * 
+ * The rows can be accessed with array index operators and this object can also be used in a foreach loop.
+ * 
+ * @author atheramew
+ */
+class ASQLiResult implements Iterator, ArrayAccess {
 	protected ASQLiRowFormat $RowFormat = ASQLiRowFormat::Associative;
-	protected object $ObjectTemplate;
+	protected ?object $ObjectTemplate = null;
 	protected mysqli_result $Result;
 	protected int $CurrentRow = 0;
 	protected mysqli $Mysqli;
 
+	/**
+	 * Not supposed to create class.
+	 * 
+	 * @see ASQLiConnection ::ExecuteQuery
+	 * @see ASQLiStatement ::GetResult
+	 */
 	public function __construct(mysqli_result $Result, mysqli $Mysqli) {
 		$this -> Result = $Result;
 		$this -> Mysqli = $Mysqli;
@@ -29,6 +52,13 @@ class ASQLiResult implements Iterator {
 		return $this -> X_FetchRow($this -> RowFormat);
 	}
 
+	/**
+	 * Fetches all rows from this result into an array.
+	 * 
+	 * **Warning**: This is a memory-intensive action and can **crash** with a big enough result set.
+	 * 
+	 * @return array The array containing all rows in this result set.
+	 */
 	public function FetchAllRows() {
 		$Buffer = [];
 		
@@ -37,30 +67,6 @@ class ASQLiResult implements Iterator {
 		}
 
 		return $Buffer;
-	}
-
-	/**
-	 * Fetches a row and sets the parameters of the provided object.
-	 * 
-	 * The format of the row array can be set with ASQLiResult::SetRowFormat() and can be retrieved using ASQLiResult::GetRowFormat().
-	 * If a column name doesnt exist in the provided object, that value will be silently ignored.
-	 * 
-	 * This function alters the provided object directly.
-	 */
-	public function LoadSerializedObject(object $Object) {
-		$this -> X_Seek($this -> CurrentRow);
-
-		$Row = $this -> X_FetchRow(ASQLiRowFormat::Associative);
-		$ReflectionObject = new ReflectionObject($Object);
-
-		foreach ($Row as $Name => $Value) {
-			try {
-				$Property = $ReflectionObject -> getProperty($Name);
-
-				$Property -> setAccessible(true);
-				$Property -> setValue($Object, $Value);
-			} catch (ReflectionException) {}
-		}
 	}
 
 	/**
@@ -108,10 +114,10 @@ class ASQLiResult implements Iterator {
 				$Data = @$this -> Result -> fetch_array(X_GetRowFormatId($RowFormat));
 				
 				if ($Data === false) {
-					ASQLiHandleEx($this -> Mysqli);
+					X_ASQLiHandleEx($this -> Mysqli);
 				}
 			} catch (Exception) {
-				ASQLiHandleEx($this -> Mysqli);
+				X_ASQLiHandleEx($this -> Mysqli);
 			}
 
 			if ($RowFormat != ASQLiRowFormat::Object) {
@@ -146,11 +152,26 @@ class ASQLiResult implements Iterator {
 
 			try {
 				if (@$this -> Result -> data_seek($RowIndex) === false) {
-					ASQLiHandleEx($this -> Mysqli);
+					X_ASQLiHandleEx($this -> Mysqli);
 				}
 			} catch (Exception) {
-				ASQLiHandleEx($this -> Mysqli);
+				X_ASQLiHandleEx($this -> Mysqli);
 			}
+		}
+	#endregion
+
+	#region ArrayAccess
+		public function offsetSet($Index, $Value): void {}
+
+		public function offsetExists($Index): bool {
+			return $Index >= 0 && $Index < $this -> Result -> num_rows;
+		}
+
+		public function offsetUnset($Index): void {}
+
+		public function offsetGet($Index): mixed {
+			$this -> X_Seek($Index);
+			return $this -> X_FetchRow($this -> RowFormat);
 		}
 	#endregion
 
@@ -179,4 +200,17 @@ class ASQLiResult implements Iterator {
 			return $this -> CurrentRowIterator < $this -> Result -> num_rows;
 		}
 	#endregion
+}
+
+
+
+function X_GetRowFormatId(ASQLiRowFormat $Format) {
+	switch ($Format) {
+		case ASQLiRowFormat::Associative:
+			return MYSQLI_ASSOC;
+		case ASQLiRowFormat::Numeric:
+			return MYSQLI_NUM;
+		case ASQLiRowFormat::Object:
+			return MYSQLI_ASSOC;
+	}
 }

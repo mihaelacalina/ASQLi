@@ -1,6 +1,8 @@
 <?
 
-
+/**
+ * General mysql exception.
+ */
 class ASQLiException extends Exception {
 	public string $Exception = "";
 	public int $ExceptionId = 0;
@@ -9,13 +11,18 @@ class ASQLiException extends Exception {
 		$this -> ExceptionId = $ExceptionId;
 		$this -> Exception = $Exception;
 
-		$this -> message = "Exception {$ExceptionId}: \"{$Exception}\"";
+		$this -> message = "Exception {$ExceptionId}: {$Exception}";
 	}
 }
 
+/**
+ * An exception that occurs while connecting.
+ */
+class ASQLiConnectionException extends ASQLiException {}
 
 
-function ASQLiHandleEx(mysqli $Mysqli) {
+
+function X_ASQLiHandleEx(mysqli $Mysqli) {
 	if (!$Mysqli -> errno) {
 		throw new ASQLiException(-1, "Unknown exception occured.");
 	}
