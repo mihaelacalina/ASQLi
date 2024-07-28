@@ -105,6 +105,15 @@ class ASQLiResult implements Iterator, ArrayAccess {
 	public function GetRowFormat() {
 		return $this -> RowFormat;
 	}
+
+	/**
+	 * Gets the row count.
+	 * 
+	 * @return int|string The number of rows.
+	 */
+	public function GetRowCount() {
+		return $this -> Result -> num_rows;
+	}
 	
 	#region Protected
 		protected function X_FetchRow(ASQLiRowFormat $RowFormat) {
