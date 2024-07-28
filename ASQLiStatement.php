@@ -1,5 +1,5 @@
 <?
-include_once __DIR__ . "/Source/ASQLiResult.php";
+include_once __DIR__ . "/ASQLiResult.php";
 
 
 /**
@@ -11,11 +11,12 @@ include_once __DIR__ . "/Source/ASQLiResult.php";
  */
 class ASQLiStatement {
 	protected string $BoundTypes = "";
+	protected array $BoundValues = [];
+
 	protected mysqli_stmt $Statement;
-	protected array $Values = [];
 	protected mysqli $Mysqli;
 
-
+	
 	public function __construct(mysqli_stmt $Statement, mysqli $Mysqli) {
 		$this -> Statement = $Statement;
 		$this -> Mysqli = $Mysqli;
@@ -28,7 +29,7 @@ class ASQLiStatement {
 	 */
 	public function BindInt(int &$Value) {
 		$this -> BoundTypes .= "i";
-		$this -> Values[] = $Value;
+		$this -> BoundValues[] = $Value;
 	}
 
 	/**
@@ -38,7 +39,7 @@ class ASQLiStatement {
 	 */
 	public function BindString(string &$Value) {
 		$this -> BoundTypes .= "s";
-		$this -> Values[] = $Value;
+		$this -> BoundValues[] = $Value;
 	}
 
 	/**
@@ -48,7 +49,7 @@ class ASQLiStatement {
 	 */
 	public function BindFloat(float &$Value) {
 		$this -> BoundTypes .= "d";
-		$this -> Values[] = $Value;
+		$this -> BoundValues[] = $Value;
 	}
 
 	/**
@@ -58,7 +59,15 @@ class ASQLiStatement {
 	 */
 	public function BindBlob(string &$Value) {
 		$this -> BoundTypes .= "b";
-		$this -> Values[] = $Value;
+		$this -> BoundValues[] = $Value;
+	}
+
+	/**
+	 * Clears all the bound variables from the query.
+	 */
+	public function ClearBound() {
+		$this -> BoundTypes = "";
+		$this -> BoundValues = [];
 	}
 
 	/**
@@ -70,13 +79,13 @@ class ASQLiStatement {
 
 		if (strlen($this -> BoundTypes) > 0) {
 			try {
-				$Result = @$this -> Statement -> bind_param($this -> BoundTypes, ...$this -> Values);
+				$Result = @$this -> Statement -> bind_param($this -> BoundTypes, ...$this -> BoundValues);
 
 				if ($Result === false) {
-					ASQLiHandleEx($this -> Mysqli);
+					X_ASQLiHandleEx($this -> Mysqli);
 				}
 			} catch (Exception) {
-				ASQLiHandleEx($this -> Mysqli);
+				X_ASQLiHandleEx($this -> Mysqli);
 			}
 		}
 
@@ -84,10 +93,10 @@ class ASQLiStatement {
 			$Result = @$this -> Statement -> execute();
 
 			if ($Result === false) {
-				ASQLiHandleEx($this -> Mysqli);
+				X_ASQLiHandleEx($this -> Mysqli);
 			}
 		} catch (Exception) {
-			ASQLiHandleEx($this -> Mysqli);
+			X_ASQLiHandleEx($this -> Mysqli);
 		}
 	}
 
@@ -101,12 +110,12 @@ class ASQLiStatement {
 			$Result = @$this -> Statement -> get_result();
 
 			if ($Result === false) {
-				ASQLiHandleEx($this -> Mysqli);
+				X_ASQLiHandleEx($this -> Mysqli);
 			}
 
 			return new ASQLiResult($Result, $this -> Mysqli);
 		} catch (Exception) {
-			ASQLiHandleEx($this -> Mysqli);
+			X_ASQLiHandleEx($this -> Mysqli);
 		}
 	}
 }

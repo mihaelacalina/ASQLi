@@ -1,43 +1,56 @@
 <?
-include_once __DIR__ . "/Source/ASQLiResult.php";
-include_once __DIR__ . "/Source/Exceptions.php";
-include_once __DIR__ . "/Source/Enums.php";
+include_once __DIR__ . "/ASQLiExceptions.php";
 include_once __DIR__ . "/ASQLiStatement.php";
+include_once __DIR__ . "/ASQLiResult.php";
 
+/**
+ * The desired type of result set.
+ * 
+ * Store will buffer the result locally and Use will buffer it on the remote server.
+ */
+enum ASQLiResultType: int {
+	case Store = MYSQLI_STORE_RESULT;
+	case Use = MYSQLI_USE_RESULT;
+}
 
+/**
+ * This is a connection to a mysqli server.
+ * 
+ * @author atheramew
+ */
 class ASQLiConnection {
-	public array $Exceptions = [];
-
 	protected ?mysqli $Connection = null;
 	protected array $Data = [];
 
-
+	/**
+	 * Creates a new ASQLiConnection without connecting to the server.
+	 * 
+	 * @see ASQLiConnection::Connect
+	 */
 	public function __construct(?string $Address = null, ?string $Username = null, ?string $Password = null, ?string $Database = null, ?int $Port = null, ?string $Socket = null) {
 		$this -> Data = [$Address, $Username, $Password, $Database, $Port, $Socket];	
 	}
 
 	/**
 	 * Attempts to connect to the database.
+	 * 
+	 * @throws ASQLiConnectionException If an exception occurs.
 	 */
 	public function Connect() {
 		$TempConnection = null;
 
 		try {
 			$TempConnection = @new mysqli(...$this -> Data);
+
+			if ($TempConnection === false) {
+				throw new Exception();
+			}
 		} catch (Exception) {
 			if (!mysqli_connect_errno()) {
-				throw new ASQLiException(-1, "Unknown exception occured.");
+				throw new ASQLiConnectionException(-1, "Unknown exception occured.");
 			}
 
-			throw new ASQLiException(mysqli_connect_errno(), mysqli_connect_error());
-		}
-
-		if ($TempConnection === false) {
-			if (!mysqli_connect_errno()) {
-				throw new ASQLiException(-1, "Unknown exception occured.");
-			}
-
-			throw new ASQLiException(mysqli_connect_errno(), mysqli_connect_error());
+			throw new ASQLiConnectionException(mysqli_connect_errno(), mysqli_connect_error());
 		}
 
 		$this -> Connection = $TempConnection;
@@ -50,19 +63,17 @@ class ASQLiConnection {
 	 */
 	public function ExecuteQuery(string $Query, ASQLiResultType $ResultType = ASQLiResultType::Store) {
 		$this -> X_ForceConnected();
-		$QueryResult = false;
 
 		try {
 			$QueryResult = @$this -> Connection -> query($Query, $ResultType -> value);
+			if ($QueryResult === false) {
+				X_ASQLiHandleEx($this -> Connection);
+			}
+	
+			return new ASQLiResult($QueryResult, $this -> Connection);
 		} catch (Exception) {
-			ASQLiHandleEx($this -> Connection);
+			X_ASQLiHandleEx($this -> Connection);
 		}
-
-		if ($QueryResult === false) {
-			ASQLiHandleEx($this -> Connection);
-		}
-
-		return new ASQLiResult($QueryResult, $this -> Connection);
 	}
 
 	/**
@@ -75,12 +86,12 @@ class ASQLiConnection {
 			$RawPrepared = @$this -> Connection -> prepare($Query);
 
 			if ($RawPrepared === false) {
-				ASQLiHandleEx($this -> Connection);
+				X_ASQLiHandleEx($this -> Connection);
 			}
 
 			return new ASQLiStatement($RawPrepared, $this -> Connection);
 		} catch (Exception) {
-			ASQLiHandleEx($this -> Connection);
+			X_ASQLiHandleEx($this -> Connection);
 		}
 	}
 
