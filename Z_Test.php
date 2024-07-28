@@ -9,4 +9,9 @@ class Test {
 	public int $Index;
 }
 
-$Result = $Connection -> PrepareQuery("SELECT * FROM test", ASQLiResultType::Store);
+$PQuery = $Connection -> PrepareQuery("SELECT * FROM test", ASQLiResultType::Store);
+
+$PQuery -> Execute();
+$Result = $PQuery -> GetResult();
+$Result -> SetRowFormat(ASQLiRowFormat::Object);
+$Result -> SetTemplate(new Test());

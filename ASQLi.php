@@ -2,6 +2,7 @@
 include_once __DIR__ . "/Source/ASQLiResult.php";
 include_once __DIR__ . "/Source/Exceptions.php";
 include_once __DIR__ . "/Source/Enums.php";
+include_once __DIR__ . "/ASQLiStatement.php";
 
 
 class ASQLiConnection {
@@ -41,8 +42,13 @@ class ASQLiConnection {
 
 		$this -> Connection = $TempConnection;
 	}
-
-	public function RunQuery(string $Query, ASQLiResultType $ResultType = ASQLiResultType::Store) {
+	
+	/**
+	 * Executes the provided query.
+	 * 
+	 * @param string $Query The SQL query.
+	 */
+	public function ExecuteQuery(string $Query, ASQLiResultType $ResultType = ASQLiResultType::Store) {
 		$this -> X_ForceConnected();
 		$QueryResult = false;
 
@@ -57,6 +63,25 @@ class ASQLiConnection {
 		}
 
 		return new ASQLiResult($QueryResult, $this -> Connection);
+	}
+
+	/**
+	 * Creates a prepared statement from the provided query.
+	 * 
+	 * @param string $Query The SQL query.
+	 */
+	public function PrepareQuery(string $Query) {
+		try {
+			$RawPrepared = @$this -> Connection -> prepare($Query);
+
+			if ($RawPrepared === false) {
+				ASQLiHandleEx($this -> Connection);
+			}
+
+			return new ASQLiStatement($RawPrepared, $this -> Connection);
+		} catch (Exception) {
+			ASQLiHandleEx($this -> Connection);
+		}
 	}
 
 	/**

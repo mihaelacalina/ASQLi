@@ -1,12 +1,24 @@
 <?
-include_once __DIR__ . "/Exceptions.php";
-include_once __DIR__ . "/Enums.php";
+include_once __DIR__ . "/ASQLiExceptions.php";
+
+
+/**
+ * The format for the row arrays.
+ */
+enum ASQLiRowFormat {
+	case Associative;
+	case Object;
+	case Numeric;
+}
 
 
 
-class ASQLiResult implements Iterator {
+/**
+ * 
+ */
+class ASQLiResult implements Iterator, ArrayAccess {
 	protected ASQLiRowFormat $RowFormat = ASQLiRowFormat::Associative;
-	protected object $ObjectTemplate;
+	protected ?object $ObjectTemplate = null;
 	protected mysqli_result $Result;
 	protected int $CurrentRow = 0;
 	protected mysqli $Mysqli;
@@ -154,6 +166,21 @@ class ASQLiResult implements Iterator {
 		}
 	#endregion
 
+	#region ArrayAccess
+		public function offsetSet($Index, $Value): void {}
+
+		public function offsetExists($Index): bool {
+			return $Index >= 0 && $Index < $this -> Result -> num_rows;
+		}
+
+		public function offsetUnset($Index): void {}
+
+		public function offsetGet($Index): mixed {
+			$this -> X_Seek($Index);
+			return $this -> X_FetchRow($this -> RowFormat);
+		}
+	#endregion
+
 	#region Iterator
 		protected int $CurrentRowIterator = 0;
 
@@ -179,4 +206,17 @@ class ASQLiResult implements Iterator {
 			return $this -> CurrentRowIterator < $this -> Result -> num_rows;
 		}
 	#endregion
+}
+
+
+
+function X_GetRowFormatId(ASQLiRowFormat $Format) {
+	switch ($Format) {
+		case ASQLiRowFormat::Associative:
+			return MYSQLI_ASSOC;
+		case ASQLiRowFormat::Numeric:
+			return MYSQLI_NUM;
+		case ASQLiRowFormat::Object:
+			return MYSQLI_ASSOC;
+	}
 }
