@@ -125,6 +125,21 @@ class QueryResult {
     }
 
     /**
+     * Fetches all rows as an array of associative arrays from the result set.
+     * 
+     * @throws QueryException If the rows cannot be fetched.
+     * 
+     * @return array|bool The rows or false if there are no rows left.
+     */
+    public function GetRows() {
+        try {
+            return $this -> Statement -> fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $Exception) {
+            throw new QueryException("Unable to fetch rows ({$Exception -> getMessage()})");
+        }
+    }
+
+    /**
      * Gets the count of affected rows by INSERT, DELETE or UPDATE queries.
      * 
      * @throws QueryException If an error occurs while fetching the count.
@@ -202,11 +217,15 @@ class Connection {
     /**
      * Prepares a statement and executes it.
      * 
+     * Note:
+     *  The arguments can contain ints, floats, strings, booleans, null and a file handle for LBOs.
+     *  @see https://www.php.net/manual/en/pdo.lobs.php
+     * 
      * @param string $Query The sql statement.
      * @param mixed[] $Arguments The arguments for the prepared statement.
      * @param bool $GetInsertId If the insert id should eb autimatically fetched after execution and stored for future use.
      * @throws QueryException If the query ahs a syntax error in it or cannot be prepared for any other reason.
-     * @return QueryResult The result ofthis query
+     * @return QueryResult The result of this query
      */
     public function Query(string $Query, bool $GetInsertId = false, mixed ...$Arguments) {
         try {
