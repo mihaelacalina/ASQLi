@@ -110,17 +110,6 @@ class QueryResult {
     }
 
     /**
-     * Checks if this result is empty.
-     * 
-     * @throws QueryException If a row cannot be fetched.
-     * 
-     * @return bool 
-     */
-    public function IsEmpty() {
-        return$this -> GetRow() === false;
-    }
-
-    /**
      * Fetches a row as an associative array from the result set.
      * 
      * @throws QueryException If the row cannot be fetched.
