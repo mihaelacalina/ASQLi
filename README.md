@@ -1,4 +1,9 @@
 # ASQLi
-A wrapper for the MySQLi library for php.
+ASQLi is a library I made to facilitate my intereactions with MySQL databases. This library Explicits the exceptions that can occur and simplifies loading rows into php classes.
 
-This library aims to add useful functionality to the default MySQLi library.
+## Usage
+Using ASQLi is simple! I've tried to make everything as simple as possible while still retaining some 
+
+```php
+    i forgor :skull:
+```
