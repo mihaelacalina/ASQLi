@@ -44,3 +44,9 @@ class DriverAttributeException extends DatabaseException {}
  * General transaction exception.
  */
 class TransactionException extends DatabaseException {}
+
+
+/**
+ * Type casting error.
+ */
+class TypeException extends DatabaseException {}

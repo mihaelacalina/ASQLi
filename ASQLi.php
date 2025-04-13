@@ -89,6 +89,34 @@ class User {
 }
 
 /**
+ * The data type of a column.
+ */
+enum DataType {
+    case Integer;
+    /**
+     * A real number. What else are you?
+     */
+    case Float;
+    /**
+     * This is a binary string. This can be a blob or any kind of datatype really on the server.
+     */
+    case String;
+    /**
+     * This would be any kind of serializable object or array.
+     * 
+     * When read, this will be deserialized into the original object.
+     */
+    case Json;
+
+    /**
+     * This datatype is the same as a file handle in php.
+     * 
+     * @see https://www.php.net/manual/en/function.fopen.php
+     */
+    case Stream;
+}
+
+/**
  * This is a resut set that is returned from a query.
  */
 class QueryResult {
@@ -96,9 +124,12 @@ class QueryResult {
     protected $LastInsertId = false;
     protected PDO $Connection;
 
+    protected array $Binds;
+
     public function __construct(PDOStatement $Statement, PDO $Connection, bool $GetInsertId) {
         $this -> Connection = $Connection;
         $this -> Statement = $Statement;
+        $this -> Binds = [];
 
         if ($GetInsertId) {
             try {
@@ -110,7 +141,81 @@ class QueryResult {
     }
 
     /**
+     * Binds a column index or name to a variable.
+     * 
+     * @see Fetch in order to fetch a row into the bound variables.
+     * 
+     * @param int|string $Column The 1-indexed column index or case-sensitive name.
+     * @param mixed $Buffer The buffer variable that will be set to the fetched value.
+     * @param DataType $DataType The type to which the data will be cast.
+     * 
+     * @throws QueryException If the column cannot be bound to the buffer.
+     * 
+     * @return void
+     */
+    public function BindValue(int|string $Column, mixed &$Buffer, DataType $DataType = DataType::String) {
+        $I = count($this -> Binds);
+        $Type = PDO::PARAM_STR;
+
+        switch ($DataType) {
+            case DataType::Integer:
+                $Type = PDO::PARAM_INT;
+                break;
+            case DataType::Stream:
+                $Type = PDO::PARAM_LOB;
+                break;
+            default:
+                break;
+        }
+
+        try {
+            $SetValue = function($Value) use (&$Buffer) {
+                $Buffer = $Value;
+            };
+
+            $this -> Binds[$I] = [0, $SetValue, $DataType];
+            $this -> Statement -> bindColumn($Column, $this -> Binds[$I][0], $Type);
+        } catch (PDOException $Exception) {
+            throw new QueryException("Unable to bind column to variable ({$Exception -> getMessage()})");
+        }
+    }
+
+    /**
+     * Fetches a row into the bound variables.
+     * 
+     * @see BindValue To bind columns to variables.
+     * @throws QueryException If the row cannot be fetched.
+     * 
+     * @return void
+     */
+    public function Fetch(): void {
+        try {
+            $this -> Statement -> fetch(PDO::FETCH_BOUND);
+        } catch (PDOException $Exception) {
+            throw new QueryException("Unable to fetch row ({$Exception -> getMessage()})");
+        }
+
+        foreach ($this -> Binds as $I => $Bind) {
+            $RawValue = $Bind[0];
+            $Type = $Bind[2];
+
+            switch ($Type) {
+                case DataType::Json:
+                    $Bind[1](json_decode($RawValue));
+                    break;
+                
+                default:
+                    $Bind[1]($RawValue);
+                    break;
+            }
+        }
+    }
+
+    /**
      * Fetches a row as an associative array from the result set.
+     * 
+     * Note:
+     *  When fetching a row as an associative array, all values will be read into memory, even the large binary objects.
      * 
      * @throws QueryException If the row cannot be fetched.
      * 
@@ -126,6 +231,9 @@ class QueryResult {
 
     /**
      * Fetches all rows as an array of associative arrays from the result set.
+     * 
+     * Note:
+     *  When fetching a row as an associative array, all values will be read into memory, even the large binary objects.
      * 
      * @throws QueryException If the rows cannot be fetched.
      * 
@@ -193,7 +301,7 @@ class QueryResult {
  */
 class Connection {
     protected array $Parameters;
-    protected PDO $Connection;
+    protected ?PDO $Connection;
 
     protected function __construct() {}
 
@@ -215,15 +323,38 @@ class Connection {
     }
 
     /**
+     * Attempts to disconnect from the database.
+     * 
+     * @throws ConnectionException if an exception occurs while disconnecting.
+     */
+    public function Disconnect(): void {
+        try {
+            $this -> Connection = null;
+        } catch (PDOException $Exception) {
+            throw new ConnectionException("Unable to connect to database ({$Exception -> getMessage()})");
+        }
+    }
+
+    /**
+     * Checks if the connection has been established and not yet closed.
+     * 
+     * @return bool True if the connection is still active, false otherwise.
+     */
+    public function IsConnected(): bool {
+        return $this -> Connection !== null;
+    }
+
+    /**
      * Prepares a statement and executes it.
      * 
      * Note:
-     *  The arguments can contain ints, floats, strings, booleans, null and a file handle for LBOs.
+     *  The arguments can contain ints, floats, strings, booleans, null, arrays of serializable objects and a file handle for LBOs.
+     *  The arrays will be stored as json.
      *  @see https://www.php.net/manual/en/pdo.lobs.php
      * 
-     * @param string $Query The sql statement.
+     * @param string $Query The sql statement, with "?" as placeholders.
      * @param mixed[] $Arguments The arguments for the prepared statement.
-     * @param bool $GetInsertId If the insert id should eb autimatically fetched after execution and stored for future use.
+     * @param bool $GetInsertId If the insert id should be autimatically fetched after execution and stored for future use.
      * @throws QueryException If the query ahs a syntax error in it or cannot be prepared for any other reason.
      * @return QueryResult The result of this query
      */
@@ -235,7 +366,41 @@ class Connection {
                 throw new QueryException("Unable to set fetch mode to associative array");
             }
 
-            $Query -> execute($Arguments);
+            for ($I = 0; $I < count($Arguments); $I++) {
+                $Value = $Arguments[$I];
+                $Index = $I + 1;
+
+                if (is_resource($Value) && get_resource_type($Value) === "stream") {
+                    $Query -> bindParam($Index, $Value, PDO::PARAM_LOB);
+                    continue;
+                }
+
+                if (is_string($Value)) {
+                    $Query -> bindParam($Index, $Value, PDO::PARAM_STR);
+                    continue;
+                }
+
+                if (is_int($Value)) {
+                    $Query -> bindParam($Index, $Value, PDO::PARAM_INT);
+                    continue;
+                }
+
+                if (is_bool($Value)) {
+                    $Query -> bindParam($Index, $Value, PDO::PARAM_BOOL);
+                    continue;
+                }
+
+                if (is_array($Value)) {
+                    $EncodedValue = json_encode($Value);
+                    $Query -> bindParam($Index, $EncodedValue, PDO::PARAM_STR);
+                    continue;
+                }
+
+                
+                $Query -> bindParam($Index, $Value, PDO::PARAM_STR);
+            }
+
+            $Query -> execute();
 
             return new QueryResult($Query, $this -> Connection, $GetInsertId);
         } catch (PDOException $Exception) {
