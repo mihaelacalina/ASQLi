@@ -2,9 +2,9 @@
 ASQLi is a library I made to facilitate my intereactions with MySQL databases. This library Explicits the exceptions that can occur and simplifies loading rows into php classes.
 
 ## Usage
-Using ASQLi is simple! To get started, the ASQLi\Connection class has some static methods that can create connections to different databases such as Mysql/Mariadb and SQLite. We'll work with SQLite for this example.
+Using ASQLi is simple! To get started, the ASQLi\Connection class has some static methods that can create connections to different databases such as Mysql/Mariadb and SQLite. We'll work with SQLite in this example.
 
-The following code will create a SQLite instance in memory, create a table and insert some user-provided data in it.
+The following code will create a SQLite instance in memory, create a table and insert some unsafe data in it.
 
 ```php
     use ASQLi\Connection;
