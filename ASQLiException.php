@@ -5,7 +5,7 @@
     11/04/2025 11:45:00 PM
 */
 namespace ASQLi;
-use Exception, PDO;
+use Exception;
 
 /**
  * Base class for all exceptions thrown by an ASQLi instance.
